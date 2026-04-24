@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>MindAR AR Demo</title>
+  <title>AR名刺 (iOS対応)</title>
 
   <!-- MindAR + Three.js -->
   <script src="https://cdn.jsdelivr.net/npm/mind-ar/dist/mindar-image-three.prod.js"></script>
@@ -10,52 +10,57 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
 
   <style>
-    html, body { margin: 0; overflow: hidden; background: #000; }
+    html, body { margin:0; padding:0; overflow:hidden; background:#000; }
     #startScreen {
-      position: fixed; inset: 0; background: #000;
-      display: flex; justify-content: center; align-items: center;
-      color: white; font-size: 2rem; cursor: pointer; z-index: 10;
+      position:fixed; inset:0;
+      background:#000;
+      display:flex; align-items:center; justify-content:center;
+      color:white; font-size:2rem; cursor:pointer;
+      z-index:10;
     }
   </style>
 </head>
 
 <body>
-  <div id="startScreen">タップして開始</div>
-  <div id="ar-container"></div>
+
+<div id="startScreen">タップして開始</div>
+<div id="ar-container"></div>
 
 <script>
 document.getElementById("startScreen").addEventListener("click", async () => {
 
-    // 🟢 iPhone 用：背面カメラを強制
+    // ★ 先に video を作って playsinline を設定
+    const tempVideo = document.createElement("video");
+    tempVideo.setAttribute("playsinline", "");
+    tempVideo.setAttribute("webkit-playsinline", "");
+    tempVideo.muted = true;
+
+    // カメラ permission
     try {
-        await navigator.mediaDevices.getUserMedia({
+        const stream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: { exact: "environment" } }
         });
+        tempVideo.srcObject = stream;
+        await tempVideo.play();  // iOS では playsinline が必須
     } catch(e) {
-        alert("カメラが許可されていません。設定→Safari→カメラを許可にしてください。");
+        alert("カメラを許可してください");
         return;
     }
 
     document.getElementById("startScreen").style.display = "none";
 
-    // 🟢 MindAR 初期化（iOS17対応）
+    // MindAR init
     const mindarThree = new window.MINDAR.IMAGE.MindARThree({
         container: document.getElementById("ar-container"),
         imageTargetSrc: "./marker/marker.mind",
-        filterMinCF: 0.001,
-        warmupTolerance: 1
     });
-
     const { renderer, scene, camera } = mindarThree;
 
-    // Anchor
     const anchor = mindarThree.addAnchor(0);
-
-    // GLBモデル読み込み（ロード後に追加）
     const loader = new THREE.GLTFLoader();
     loader.load("./scene/model.glb", (gltf) => {
         const model = gltf.scene;
-        model.scale.set(0.5, 0.5, 0.5);
+        model.scale.set(0.5,0.5,0.5);
         anchor.group.add(model);
     });
 

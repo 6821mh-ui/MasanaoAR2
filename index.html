@@ -1,79 +1,89 @@
 <!DOCTYPE html>
-<html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <title>AR名刺</title>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>MindAR AR Demo</title>
 
-    <!-- MindAR & A-Frame -->
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar/dist/mindar-image.prod.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/aframe/dist/aframe.min.js"></script>
+  <!-- MindAR + Three.js CDN（安定版） -->
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar/dist/mindar-image-three.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
 
-    <style>
-      body { margin: 0; overflow: hidden; }
-      #startButton {
-        position: absolute;
-        top: 50%; left: 50%;
-        transform: translate(-50%, -50%);
-        padding: 16px 28px;
-        background: #2196F3;
-        color: white;
-        border-radius: 10px;
-        font-size: 20px;
-        cursor: pointer;
-        z-index: 10;
-      }
-    </style>
-  </head>
+  <style>
+    body, html {
+      margin: 0;
+      overflow: hidden;
+      background: #000;
+    }
+    #startScreen {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      font-size: 2rem;
+      cursor: pointer;
+      z-index: 10;
+    }
+  </style>
+</head>
 
-  <body>
-    <!-- Start Button -->
-    <button id="startButton">タップして開始</button>
+<body>
+  <!-- 開始ボタン -->
+  <div id="startScreen">タップして開始</div>
 
-    <!-- MindAR Scene -->
-    <a-scene mindar-image="imageTargetSrc: ./marker/marker.mind; autoStart: false;"
-             vr-mode-ui="enabled: false"
-             device-orientation-permission-ui="enabled: false"
-             embedded
-             renderer="colorManagement: true; physicallyCorrectLights: true;">
+  <div id="ar-container"></div>
 
-      <a-assets>
-        <a-asset-item id="model" src="./scene/model.glb"></a-asset-item>
-        <audio id="voice" src="./assets/voice.mp3"></audio>
-      </a-assets>
+<script>
+document.getElementById("startScreen").addEventListener("click", async () => {
 
-      <a-camera position="0 0 0"></a-camera>
+    // カメラ許可を Safari/iPhone で強制的に先に要求
+    try {
+        await navigator.mediaDevices.getUserMedia({ video: true });
+    } catch(e) {
+        alert("カメラが許可されていません。設定からSafariのカメラをONにしてください。");
+        return;
+    }
 
-      <a-entity mindar-image-target="targetIndex: 0">
-        <a-gltf-model src="#model" position="0 0 0" rotation="0 0 0" scale="0.4 0.4 0.4"></a-gltf-model>
-      </a-entity>
-    </a-scene>
+    document.getElementById("startScreen").style.display = "none";
 
-    <script>
-      window.addEventListener('DOMContentLoaded', () => {
-        const startButton = document.querySelector("#startButton");
-        const scene = document.querySelector("a-scene");
-        const voice = document.querySelector("#voice");
+    // MindAR の初期化
+    const mindarThree = new window.MINDAR.IMAGE.MindARThree({
+        container: document.getElementById("ar-container"),
+        imageTargetSrc: "./marker/marker.mind",
+    });
 
-        startButton.onclick = async () => {
-          // iPhone Safari の permission 要求
-          if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
-            try {
-              await DeviceOrientationEvent.requestPermission();
-            } catch (e) {
-              console.log("orientation error:", e);
-            }
-          }
+    const { renderer, scene, camera } = mindarThree;
 
-          startButton.style.display = "none";
+    // 3Dモデル読み込み
+    const loader = new THREE.GLTFLoader();
+    let model;
 
-          // AR開始
-          scene.components["mindar-image"].start();
+    loader.load("./scene/model.glb", (gltf) => {
+        model = gltf.scene;
+        model.scale.set(0.5, 0.5, 0.5);
+    });
 
-          // 必ずユーザー操作後の再生
-          voice.play().catch(e => console.log("Audio error:", e));
-        };
-      });
-    </script>
-  </body>
+    // アンカー（マーカー）
+    const anchor = mindarThree.addAnchor(0);
+
+    anchor.onTargetFound = () => {
+        console.log("FOUND");
+    };
+
+    anchor.group.add(model);
+
+    await mindarThree.start();
+
+    renderer.setAnimationLoop(() => {
+        renderer.render(scene, camera);
+    });
+});
+</script>
+
+<!-- GLTF Loader (Three.js addon) -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
+
+</body>
 </html>

@@ -4,9 +4,10 @@
   <meta charset="UTF-8">
   <title>MindAR AR Demo</title>
 
-  <!-- MindAR + Three.js CDN（安定版） -->
+  <!-- MindAR + Three.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/mind-ar/dist/mindar-image-three.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
 
   <style>
     body, html {
@@ -30,15 +31,13 @@
 </head>
 
 <body>
-  <!-- 開始ボタン -->
   <div id="startScreen">タップして開始</div>
-
   <div id="ar-container"></div>
 
 <script>
 document.getElementById("startScreen").addEventListener("click", async () => {
 
-    // カメラ許可を Safari/iPhone で強制的に先に要求
+    // Safari向けカメラ許可
     try {
         await navigator.mediaDevices.getUserMedia({ video: true });
     } catch(e) {
@@ -48,7 +47,7 @@ document.getElementById("startScreen").addEventListener("click", async () => {
 
     document.getElementById("startScreen").style.display = "none";
 
-    // MindAR の初期化
+    // MindAR 初期化
     const mindarThree = new window.MINDAR.IMAGE.MindARThree({
         container: document.getElementById("ar-container"),
         imageTargetSrc: "./marker/marker.mind",
@@ -56,23 +55,23 @@ document.getElementById("startScreen").addEventListener("click", async () => {
 
     const { renderer, scene, camera } = mindarThree;
 
-    // 3Dモデル読み込み
+    // GLBモデル読み込み
     const loader = new THREE.GLTFLoader();
     let model;
+
+    const anchor = mindarThree.addAnchor(0);
 
     loader.load("./scene/model.glb", (gltf) => {
         model = gltf.scene;
         model.scale.set(0.5, 0.5, 0.5);
-    });
 
-    // アンカー（マーカー）
-    const anchor = mindarThree.addAnchor(0);
+        // モデルの追加はロード完了後に行う！
+        anchor.group.add(model);
+    });
 
     anchor.onTargetFound = () => {
         console.log("FOUND");
     };
-
-    anchor.group.add(model);
 
     await mindarThree.start();
 
@@ -81,9 +80,6 @@ document.getElementById("startScreen").addEventListener("click", async () => {
     });
 });
 </script>
-
-<!-- GLTF Loader (Three.js addon) -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
 
 </body>
 </html>

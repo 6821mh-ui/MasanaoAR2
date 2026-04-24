@@ -1,85 +1,79 @@
 <!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>AR名刺 - タップして開始</title>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>AR名刺</title>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
+    <!-- MindAR & A-Frame -->
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar/dist/mindar-image.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aframe/dist/aframe.min.js"></script>
 
-<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.0/dist/mindar-image-prod.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mind-ar@1.2.0/dist/mindar-image.css">
+    <style>
+      body { margin: 0; overflow: hidden; }
+      #startButton {
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        padding: 16px 28px;
+        background: #2196F3;
+        color: white;
+        border-radius: 10px;
+        font-size: 20px;
+        cursor: pointer;
+        z-index: 10;
+      }
+    </style>
+  </head>
 
-<style>
-  body, html { margin:0; padding:0; overflow:hidden; }
+  <body>
+    <!-- Start Button -->
+    <button id="startButton">タップして開始</button>
 
-  #startScreen {
-    position:fixed; top:0; left:0; width:100%; height:100%;
-    background:rgba(0,0,0,0.85);
-    display:flex; flex-direction:column;
-    align-items:center; justify-content:center;
-    color:#fff; font-size:24px; z-index:10;
-  }
-  #startButton {
-    margin-top:20px; padding:15px 30px;
-    font-size:20px; background:#28a3ff;
-    border:none; border-radius:10px; color:#fff;
-  }
-</style>
-</head>
+    <!-- MindAR Scene -->
+    <a-scene mindar-image="imageTargetSrc: ./marker/marker.mind; autoStart: false;"
+             vr-mode-ui="enabled: false"
+             device-orientation-permission-ui="enabled: false"
+             embedded
+             renderer="colorManagement: true; physicallyCorrectLights: true;">
 
-<body>
+      <a-assets>
+        <a-asset-item id="model" src="./scene/model.glb"></a-asset-item>
+        <audio id="voice" src="./assets/voice.mp3"></audio>
+      </a-assets>
 
-<!-- 🔊 音声 -->
-<audio id="voice" src="assets/voice.mp3"></audio>
+      <a-camera position="0 0 0"></a-camera>
 
-<!-- 🎬 開始画面 -->
-<div id="startScreen">
-  タップして開始
-  <button id="startButton">▶ はじめる</button>
-</div>
+      <a-entity mindar-image-target="targetIndex: 0">
+        <a-gltf-model src="#model" position="0 0 0" rotation="0 0 0" scale="0.4 0.4 0.4"></a-gltf-model>
+      </a-entity>
+    </a-scene>
 
-<!-- 📷 AR表示領域 -->
-<div id="ar-area" style="width:100%; height:100%; display:none;">
-  <mindar-image id="mindar" image-target-src="marker/marker.mind">
-    <mindar-image-target target-index="0">
-      <three id="three-scene"></three>
-    </mindar-image-target>
-  </mindar-image>
-</div>
+    <script>
+      window.addEventListener('DOMContentLoaded', () => {
+        const startButton = document.querySelector("#startButton");
+        const scene = document.querySelector("a-scene");
+        const voice = document.querySelector("#voice");
 
-<script>
-const startScreen = document.getElementById("startScreen");
-const startButton = document.getElementById("startButton");
-const voice = document.getElementById("voice");
-const mindarContainer = document.getElementById("mindar");
-const threeContainer = document.getElementById("three-scene");
+        startButton.onclick = async () => {
+          // iPhone Safari の permission 要求
+          if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
+            try {
+              await DeviceOrientationEvent.requestPermission();
+            } catch (e) {
+              console.log("orientation error:", e);
+            }
+          }
 
-startButton.onclick = async () => {
-  // スマホの自動再生解除
-  voice.play();
+          startButton.style.display = "none";
 
-  // 画面切替
-  startScreen.style.display = "none";
-  document.getElementById("ar-area").style.display = "block";
+          // AR開始
+          scene.components["mindar-image"].start();
 
-  // AR開始
-  const mindar = mindarContainer;
-  const startResult = await mindar.start();
-
-  // Three.js の Scene にアクセス
-  const scene = threeContainer.object3D;
-
-  // GLBモデル読み込み
-  const loader = new THREE.GLTFLoader();
-  loader.load("scene/model.glb", (gltf) => {
-    const model = gltf.scene;
-    model.scale.set(0.5, 0.5, 0.5);
-    model.position.set(0, -0.3, 0);
-    scene.add(model);
-  });
-};
-</script>
-
-</body>
+          // 必ずユーザー操作後の再生
+          voice.play().catch(e => console.log("Audio error:", e));
+        };
+      });
+    </script>
+  </body>
 </html>

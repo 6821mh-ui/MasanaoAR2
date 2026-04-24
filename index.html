@@ -4,28 +4,17 @@
   <meta charset="UTF-8">
   <title>MindAR AR Demo</title>
 
-  <!-- MindAR + Three.js CDN -->
+  <!-- MindAR + Three.js -->
   <script src="https://cdn.jsdelivr.net/npm/mind-ar/dist/mindar-image-three.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
 
   <style>
-    body, html {
-      margin: 0;
-      overflow: hidden;
-      background: #000;
-    }
+    html, body { margin: 0; overflow: hidden; background: #000; }
     #startScreen {
-      position: fixed;
-      inset: 0;
-      background: #000;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      color: white;
-      font-size: 2rem;
-      cursor: pointer;
-      z-index: 10;
+      position: fixed; inset: 0; background: #000;
+      display: flex; justify-content: center; align-items: center;
+      color: white; font-size: 2rem; cursor: pointer; z-index: 10;
     }
   </style>
 </head>
@@ -37,41 +26,38 @@
 <script>
 document.getElementById("startScreen").addEventListener("click", async () => {
 
-    // Safari向けカメラ許可
+    // 🟢 iPhone 用：背面カメラを強制
     try {
-        await navigator.mediaDevices.getUserMedia({ video: true });
+        await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { exact: "environment" } }
+        });
     } catch(e) {
-        alert("カメラが許可されていません。設定からSafariのカメラをONにしてください。");
+        alert("カメラが許可されていません。設定→Safari→カメラを許可にしてください。");
         return;
     }
 
     document.getElementById("startScreen").style.display = "none";
 
-    // MindAR 初期化
+    // 🟢 MindAR 初期化（iOS17対応）
     const mindarThree = new window.MINDAR.IMAGE.MindARThree({
         container: document.getElementById("ar-container"),
         imageTargetSrc: "./marker/marker.mind",
+        filterMinCF: 0.001,
+        warmupTolerance: 1
     });
 
     const { renderer, scene, camera } = mindarThree;
 
-    // GLBモデル読み込み
-    const loader = new THREE.GLTFLoader();
-    let model;
-
+    // Anchor
     const anchor = mindarThree.addAnchor(0);
 
+    // GLBモデル読み込み（ロード後に追加）
+    const loader = new THREE.GLTFLoader();
     loader.load("./scene/model.glb", (gltf) => {
-        model = gltf.scene;
+        const model = gltf.scene;
         model.scale.set(0.5, 0.5, 0.5);
-
-        // モデルの追加はロード完了後に行う！
         anchor.group.add(model);
     });
-
-    anchor.onTargetFound = () => {
-        console.log("FOUND");
-    };
 
     await mindarThree.start();
 

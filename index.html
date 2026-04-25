@@ -1,76 +1,78 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <title>AR名刺 (iOS対応)</title>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR名刺（音声つき）</title>
 
-  <!-- MindAR + Three.js -->
-  <script src="https://cdn.jsdelivr.net/npm/mind-ar/dist/mindar-image-three.prod.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
+    <!-- A-Frame & MindAR -->
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
 
-  <style>
-    html, body { margin:0; padding:0; overflow:hidden; background:#000; }
-    #startScreen {
-      position:fixed; inset:0;
-      background:#000;
-      display:flex; align-items:center; justify-content:center;
-      color:white; font-size:2rem; cursor:pointer;
-      z-index:10;
-    }
-  </style>
-</head>
+    <style>
+      body { margin:0; overflow:hidden; }
+      #scanning-overlay {
+        position:absolute; inset:0;
+        display:flex; justify-content:center; align-items:center;
+        background:rgba(0,0,0,0.5); color:white;
+        font-size:1.5rem; z-index:5;
+      }
+      #voiceBtn {
+        position:absolute; bottom:20px; left:20px;
+        padding:10px 20px; z-index:10; 
+        font-size:1.2rem;
+      }
+    </style>
+  </head>
 
-<body>
+  <body>
 
-<div id="startScreen">タップして開始</div>
-<div id="ar-container"></div>
+    <!-- スキャン中オーバーレイ -->
+    <div id="scanning-overlay">名刺の画像にかざしてください…</div>
 
-<script>
-document.getElementById("startScreen").addEventListener("click", async () => {
+    <!-- 音声ファイル（自動再生は禁止） -->
+    <audio id="voice" src="./assets/voice.mp3"></audio>
+    <button id="voiceBtn">▶ 自己紹介を再生</button>
 
-    // ★ 先に video を作って playsinline を設定
-    const tempVideo = document.createElement("video");
-    tempVideo.setAttribute("playsinline", "");
-    tempVideo.setAttribute("webkit-playsinline", "");
-    tempVideo.muted = true;
+    <a-scene
+      mindar-image="imageTargetSrc: ./marker/marker.mind; filterMinCF:0.001; filterBeta:0.01;"
+      vr-mode-ui="enabled:false"
+      device-orientation-permission-ui="enabled:false"
+      renderer="colorManagement:true, physicallyCorrectLights"
+      color-space="sRGB">
 
-    // カメラ permission
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: { exact: "environment" } }
-        });
-        tempVideo.srcObject = stream;
-        await tempVideo.play();  // iOS では playsinline が必須
-    } catch(e) {
-        alert("カメラを許可してください");
-        return;
-    }
+      <a-assets>
+        <!-- モデルのパスを反映 -->
+        <a-asset-item id="avatarModel" src="./scene/model.glb"></a-asset-item>
+      </a-assets>
 
-    document.getElementById("startScreen").style.display = "none";
+      <a-camera look-controls="enabled:false"></a-camera>
 
-    // MindAR init
-    const mindarThree = new window.MINDAR.IMAGE.MindARThree({
-        container: document.getElementById("ar-container"),
-        imageTargetSrc: "./marker/marker.mind",
-    });
-    const { renderer, scene, camera } = mindarThree;
+      <!-- マーカーに応答する部分 -->
+      <a-entity mindar-image-target="targetIndex:0">
+        <a-gltf-model
+          src="#avatarModel"
+          scale="2 2 2"
+          rotation="45 0 0"
+          position="0 0 0"
+          animation-mixer="clip:*; loop:repeat;">
+        </a-gltf-model>
+      </a-entity>
 
-    const anchor = mindarThree.addAnchor(0);
-    const loader = new THREE.GLTFLoader();
-    loader.load("./scene/model.glb", (gltf) => {
-        const model = gltf.scene;
-        model.scale.set(0.5,0.5,0.5);
-        anchor.group.add(model);
-    });
+    </a-scene>
 
-    await mindarThree.start();
+    <script>
+      // 音声再生（iPhone 対応）
+      document.getElementById("voiceBtn").addEventListener("click", () => {
+        const audio = document.getElementById("voice");
+        audio.play();
+      });
 
-    renderer.setAnimationLoop(() => {
-        renderer.render(scene, camera);
-    });
-});
-</script>
+      // AR準備完了 → オーバーレイ非表示
+      const overlay = document.getElementById("scanning-overlay");
+      document.querySelector("a-scene").addEventListener("arReady", () => {
+        overlay.style.display = "none";
+      });
+    </script>
 
-</body>
+  </body>
 </html>

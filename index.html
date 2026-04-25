@@ -1,132 +1,135 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR名刺（完全版）</title>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AR名刺（安定版）</title>
 
-    <!-- A-Frame & MindAR -->
-    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
 
-    <style>
-      body { margin:0; overflow:hidden; }
+  <style>
+    body { margin:0; overflow:hidden; }
 
-      #scanning-overlay {
-        position:absolute;
-        inset:0;
-        display:flex;
-        justify-content:center;
-        align-items:center;
-        background:rgba(0,0,0,0.5);
-        color:white;
-        font-size:1.5rem;
-        z-index:5;
+    #overlay {
+      position:absolute;
+      inset:0;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      background:rgba(0,0,0,0.5);
+      color:#fff;
+      font-size:1.5rem;
+      z-index:5;
+    }
+
+    #btn {
+      position:absolute;
+      bottom:20px;
+      left:20px;
+      z-index:10;
+      padding:10px 20px;
+    }
+  </style>
+
+  <!-- 🔄 安定回転コンポーネント -->
+  <script>
+    AFRAME.registerComponent('auto-rotate', {
+      schema: { speed: { type: 'number', default: 30 } },
+
+      tick: function (time, delta) {
+        const el = this.el;
+        el.object3D.rotation.y += THREE.MathUtils.degToRad(this.data.speed * delta / 1000);
       }
+    });
+  </script>
 
-      #voiceBtn {
-        position:absolute;
-        bottom:20px;
-        left:20px;
-        padding:10px 20px;
-        font-size:1.2rem;
-        z-index:10;
-      }
-    </style>
+  <!-- ✋ ピンチ拡大 -->
+  <script>
+    AFRAME.registerComponent('pinch-scale', {
+      init: function () {
+        const el = this.el;
+        let startDist = null;
+        let baseScale = el.object3D.scale.clone();
 
-    <!-- ✅ ピンチ拡大縮小コンポーネント -->
-    <script>
-      AFRAME.registerComponent('pinch-scale', {
-        init: function () {
-          const el = this.el;
-          let startDistance = null;
-          let baseScale = el.object3D.scale.clone();
-
-          function getDistance(touches) {
-            const dx = touches[0].pageX - touches[1].pageX;
-            const dy = touches[0].pageY - touches[1].pageY;
-            return Math.sqrt(dx * dx + dy * dy);
-          }
-
-          document.addEventListener('touchstart', function (e) {
-            if (e.touches.length === 2) {
-              startDistance = getDistance(e.touches);
-              baseScale = el.object3D.scale.clone();
-            }
-          });
-
-          document.addEventListener('touchmove', function (e) {
-            if (e.touches.length === 2 && startDistance) {
-              const newDistance = getDistance(e.touches);
-              const scale = newDistance / startDistance;
-
-              el.object3D.scale.set(
-                baseScale.x * scale,
-                baseScale.y * scale,
-                baseScale.z * scale
-              );
-            }
-          });
-
-          document.addEventListener('touchend', function () {
-            startDistance = null;
-          });
+        function dist(t) {
+          return Math.hypot(
+            t[0].pageX - t[1].pageX,
+            t[0].pageY - t[1].pageY
+          );
         }
-      });
-    </script>
 
-  </head>
+        document.addEventListener('touchstart', e => {
+          if (e.touches.length === 2) {
+            startDist = dist(e.touches);
+            baseScale = el.object3D.scale.clone();
+          }
+        });
 
-  <body>
+        document.addEventListener('touchmove', e => {
+          if (e.touches.length === 2 && startDist) {
+            const newDist = dist(e.touches);
+            const s = newDist / startDist;
 
-    <!-- スキャン中表示 -->
-    <div id="scanning-overlay">名刺の画像にかざしてください…</div>
+            el.object3D.scale.set(
+              baseScale.x * s,
+              baseScale.y * s,
+              baseScale.z * s
+            );
+          }
+        });
 
-    <!-- 音声 -->
-    <audio id="voice" src="./assets/voice.mp3"></audio>
-    <button id="voiceBtn">▶ 自己紹介を再生</button>
+        document.addEventListener('touchend', () => {
+          startDist = null;
+        });
+      }
+    });
+  </script>
 
-    <a-scene
-      mindar-image="imageTargetSrc: ./marker/marker.mind;"
-      vr-mode-ui="enabled:false"
-      device-orientation-permission-ui="enabled:false">
+</head>
 
-      <a-assets>
-        <a-asset-item id="avatarModel" src="./scene/model.glb"></a-asset-item>
-      </a-assets>
+<body>
 
-      <a-camera look-controls="enabled:false"></a-camera>
+  <div id="overlay">名刺をかざしてください…</div>
 
-      <!-- ARターゲット -->
-      <a-entity mindar-image-target="targetIndex:0">
+  <audio id="voice" src="./assets/voice.mp3"></audio>
+  <button id="btn">▶ 再生</button>
 
-        <a-gltf-model
-          src="#avatarModel"
-          scale="2 2 2"
-          position="0 0 0"
-          rotation="45 0 0"
+  <a-scene
+    mindar-image="imageTargetSrc: ./marker/marker.mind;"
+    vr-mode-ui="enabled:false"
+    device-orientation-permission-ui="enabled:false">
 
-          <!-- 🔄 自動回転 -->
-          animation="property: rotation; to: 45 360 0; loop: true; dur: 5000; easing: linear;"
+    <a-assets>
+      <a-asset-item id="model" src="./scene/model.glb"></a-asset-item>
+    </a-assets>
 
-          <!-- ✋ ピンチ拡大縮小 -->
-          pinch-scale>
-        </a-gltf-model>
+    <a-camera look-controls="enabled:false"></a-camera>
 
-      </a-entity>
+    <a-entity mindar-image-target="targetIndex:0">
 
-    </a-scene>
+      <!-- ✅ 安定回転版 -->
+      <a-gltf-model
+        src="#model"
+        scale="2 2 2"
+        position="0 0 0"
 
-    <script>
-      // 音声再生
-      document.getElementById("voiceBtn").addEventListener("click", () => {
-        document.getElementById("voice").play();
-      });
+        auto-rotate="speed: 40"
+        pinch-scale>
+      </a-gltf-model>
 
-      // スキャン完了
-      document.querySelector("a-scene").addEventListener("arReady", () => {
-        document.getElementById("scanning-overlay").style.display = "none";
-      });
-    </script>
+    </a-entity>
 
-  </body>
+  </a-scene>
+
+  <script>
+    document.getElementById("btn").addEventListener("click", () => {
+      document.getElementById("voice").play();
+    });
+
+    document.querySelector("a-scene").addEventListener("arReady", () => {
+      document.getElementById("overlay").style.display = "none";
+    });
+  </script>
+
+</body>
 </html>

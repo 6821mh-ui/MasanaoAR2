@@ -21,7 +21,6 @@
 
 <body>
 
-  <!-- スキャン中オーバーレイ -->
   <div id="scanning-overlay">名刺の画像にかざしてください…</div>
 
   <a-scene
@@ -32,19 +31,15 @@
     color-space="sRGB">
 
     <a-assets>
-      <!-- どちらでもOK（あなたのGLB名を使ってください） -->
-      <a-asset-item id="avatarModel" src="./scene/model(glb or model_fixed.glb)"></a-asset-item>
+      <!-- ★ 正しいGLBファイル名に修正済み ★ -->
+      <a-asset-item id="avatarModel" src="./scene/model.glb"></a-asset-item>
     </a-assets>
 
     <a-camera look-controls="enabled:false"></a-camera>
 
-    <!-- マーカー検出 -->
     <a-entity mindar-image-target="targetIndex:0">
-
-      <!-- ★ 回転専用の親（MindARはここを触りません） -->
       <a-entity id="rotator">
 
-        <!-- ★ モデル -->
         <a-gltf-model
           src="#avatarModel"
           scale="1.7 1.7 1.7"
@@ -57,20 +52,17 @@
   </a-scene>
 
   <script>
-    // ★★★★★ 必ず回転するコンポーネント ★★★★★
     AFRAME.registerComponent("force-rotate", {
       tick: function () {
-        this.el.object3D.rotation.y += 0.02; // 速度
+        this.el.object3D.rotation.y += 0.02;
       }
     });
 
-    // AR準備完了でオーバーレイ非表示
     const overlay = document.getElementById("scanning-overlay");
     document.querySelector("a-scene").addEventListener("arReady", () => {
       overlay.style.display = "none";
     });
 
-    // DOMロード後に rotator へ回転適用（重要）
     window.addEventListener("load", () => {
       const rotator = document.querySelector("#rotator");
       if (rotator) {

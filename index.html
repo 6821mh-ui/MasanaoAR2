@@ -1,83 +1,83 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR名刺（完全版）</title>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AR名刺（回転モデル）</title>
 
-    <!-- A-Frame & MindAR -->
-    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+  <!-- A-Frame & MindAR -->
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
 
-    <style>
-      body { margin: 0; overflow: hidden; }
-      #scanning-overlay {
-        position: absolute; inset: 0;
-        display: flex; justify-content: center; align-items: center;
-        background: rgba(0,0,0,0.5); color: white;
-        font-size: 1.5rem; z-index: 5;
-      }
-      #voiceBtn {
-        position:absolute; bottom:20px; left:20px;
-        padding:10px 20px; z-index:10; 
-        font-size:1.2rem;
-      }
-    </style>
-  </head>
+  <style>
+    body { margin:0; overflow:hidden; }
+    #scanning-overlay {
+      position:absolute; inset:0;
+      display:flex; justify-content:center; align-items:center;
+      background:rgba(0,0,0,0.5); color:white;
+      font-size:1.5rem; z-index:5;
+    }
+  </style>
+</head>
 
-  <body>
-    <!-- スキャン中表示 -->
-    <div id="scanning-overlay">名刺をかざしてください...</div>
+<body>
 
-    <!-- 音声 -->
-    <audio id="voice" src="./assets/voice.mp3"></audio>
-    <button id="voiceBtn">▶ 自己紹介</button>
+  <!-- スキャン中オーバーレイ -->
+  <div id="scanning-overlay">名刺の画像にかざしてください…</div>
 
-    <a-scene
-      mindar-image="imageTargetSrc: ./marker/marker.mind"
-      vr-mode-ui="enabled: false"
-      device-orientation-permission-ui="enabled: false">
+  <a-scene
+    mindar-image="imageTargetSrc: ./marker/marker.mind;"
+    vr-mode-ui="enabled:false"
+    device-orientation-permission-ui="enabled:false"
+    renderer="colorManagement:true, physicallyCorrectLights"
+    color-space="sRGB">
 
-      <a-assets>
-        <a-asset-item id="avatarModel" src="./scene/model.glb"></a-asset-item>
-      </a-assets>
+    <a-assets>
+      <!-- どちらでもOK（あなたのGLB名を使ってください） -->
+      <a-asset-item id="avatarModel" src="./scene/model(glb or model_fixed.glb)"></a-asset-item>
+    </a-assets>
 
-      <a-camera look-controls="enabled:false"></a-camera>
+    <a-camera look-controls="enabled:false"></a-camera>
 
-      <!-- モデル -->
-      <a-entity id="target" mindar-image-target="targetIndex:0">
-        <a-entity id="avatar"
-          gltf-model="#avatarModel"
-          scale="1 1 1"
+    <!-- マーカー検出 -->
+    <a-entity mindar-image-target="targetIndex:0">
+
+      <!-- ★ 回転専用の親（MindARはここを触りません） -->
+      <a-entity id="rotator">
+
+        <!-- ★ モデル -->
+        <a-gltf-model
+          src="#avatarModel"
+          scale="1.7 1.7 1.7"
           position="0 0 0">
-        </a-entity>
+        </a-gltf-model>
+
       </a-entity>
+    </a-entity>
 
-    </a-scene>
+  </a-scene>
 
-    <script>
-      // 音声
-      document.getElementById("voiceBtn").onclick = () => {
-        document.getElementById("voice").play();
-      };
+  <script>
+    // ★★★★★ 必ず回転するコンポーネント ★★★★★
+    AFRAME.registerComponent("force-rotate", {
+      tick: function () {
+        this.el.object3D.rotation.y += 0.02; // 速度
+      }
+    });
 
-      // スキャン完了
-      document.querySelector("a-scene").addEventListener("arReady", () => {
-        document.getElementById("scanning-overlay").style.display = "none";
-      });
+    // AR準備完了でオーバーレイ非表示
+    const overlay = document.getElementById("scanning-overlay");
+    document.querySelector("a-scene").addEventListener("arReady", () => {
+      overlay.style.display = "none";
+    });
 
-      // ★★★ GLB を確実に回転させる仕組み ★★★
-      AFRAME.registerComponent("auto-rotate", {
-        tick: function () {
-          this.el.object3D.rotation.y += 0.01; // ← 回転
-        }
-      });
+    // DOMロード後に rotator へ回転適用（重要）
+    window.addEventListener("load", () => {
+      const rotator = document.querySelector("#rotator");
+      if (rotator) {
+        rotator.setAttribute("force-rotate", "");
+      }
+    });
+  </script>
 
-      // GLB 読み込み後に回転コンポーネントを付与
-      const avatar = document.getElementById("avatar");
-      avatar.addEventListener("model-loaded", () => {
-        avatar.setAttribute("auto-rotate", "");
-      });
-    </script>
-
-  </body>
+</body>
 </html>

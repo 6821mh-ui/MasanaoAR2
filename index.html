@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AR名刺（タッチ操作＋自動回転）</title>
+  <title>AR名刺（方式B：音声ボタン + タッチ操作 + 自動回転）</title>
 
   <!-- A-Frame & MindAR -->
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
@@ -10,19 +10,32 @@
 
   <style>
     body { margin:0; overflow:hidden; }
+
     #scanning-overlay {
       position:absolute; inset:0;
       display:flex; justify-content:center; align-items:center;
       background:rgba(0,0,0,0.5); color:white;
       font-size:1.5rem; z-index:5;
     }
+
+    #playButton {
+      position:absolute;
+      bottom:20px; left:50%;
+      transform:translateX(-50%);
+      padding:12px 18px;
+      background:#007bff; color:white;
+      border-radius:8px;
+      font-size:1.2rem;
+      display:none;
+      z-index:10;
+    }
   </style>
 </head>
 
 <body>
 
-  <!-- スキャン中オーバーレイ -->
   <div id="scanning-overlay">名刺にかざしてください…</div>
+  <button id="playButton">▶ 音声を再生</button>
 
   <a-scene
     mindar-image="imageTargetSrc: ./marker/marker.mind;"
@@ -32,115 +45,113 @@
     color-space="sRGB">
 
     <a-assets>
+      <!-- モデル -->
       <a-asset-item id="avatarModel" src="./scene/model.glb"></a-asset-item>
+
+      <!-- 音声 -->
+      <audio id="voice" src="./assets/voice.mp3" preload="auto"></audio>
     </a-assets>
 
     <a-camera look-controls="enabled:false"></a-camera>
 
-    <!-- マーカー検出 -->
+    <!-- マーカー認識エリア -->
     <a-entity mindar-image-target="targetIndex:0">
       <a-entity id="rotator" position="0 0 0" scale="1 1 1">
-        <a-gltf-model
-          src="#avatarModel"
-          position="0 0 0">
-        </a-gltf-model>
+        <a-gltf-model src="#avatarModel"></a-gltf-model>
       </a-entity>
     </a-entity>
 
   </a-scene>
 
   <script>
-    /***************************************************
-     * ★ 自動回転コンポーネント
-     ***************************************************/
+    /******************************************
+     * 自動回転
+     ******************************************/
     AFRAME.registerComponent("auto-rotate", {
       tick: function () {
-        this.el.object3D.rotation.y += 0.01; // 自動回転の速度
+        this.el.object3D.rotation.y += 0.01;
       }
     });
 
-
-    /***************************************************
-     * ★ タッチ操作コンポーネント（回転・ピンチ拡大縮小）
-     ***************************************************/
+    /******************************************
+     * タッチ操作：回転（1本指）＋拡大縮小（2本指ピンチ）
+     ******************************************/
     AFRAME.registerComponent("touch-control", {
       init: function () {
         const el = this.el;
-        this.previousTouches = [];
-        this.scaleFactor = 1;
 
-        const getDistance = (t1, t2) => {
-          return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-        };
+        let startX = null;
+        let startDist = null;
+        let startScale = 1;
 
-        const getRotation = (t1, t2) => {
-          return Math.atan2(t2.clientY - t1.clientY, t2.clientX - t1.clientX);
-        };
-
-        let startDistance = null;
-        let startRotation = null;
-        let startYRotation = 0;
-
-        let lastX = null;
-        let lastY = null;
+        const getDist = (t1, t2) =>
+          Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
 
         window.addEventListener("touchstart", (e) => {
-          this.previousTouches = [...e.touches];
-
-          if (e.touches.length === 2) {
-            startDistance = getDistance(e.touches[0], e.touches[1]);
-            startRotation = getRotation(e.touches[0], e.touches[1]);
-            startYRotation = el.object3D.rotation.y;
-          }
-
           if (e.touches.length === 1) {
-            lastX = e.touches[0].clientX;
-            lastY = e.touches[0].clientY;
+            startX = e.touches[0].clientX;
+          } else if (e.touches.length === 2) {
+            startDist = getDist(e.touches[0], e.touches[1]);
+            startScale = el.object3D.scale.x;
           }
         });
 
         window.addEventListener("touchmove", (e) => {
-          if (e.touches.length === 1 && lastX !== null) {
-            // 1本指ドラッグ → 水平回転
-            const dx = e.touches[0].clientX - lastX;
+          if (e.touches.length === 1 && startX != null) {
+            const dx = e.touches[0].clientX - startX;
             el.object3D.rotation.y += dx * 0.01;
-            lastX = e.touches[0].clientX;
-            lastY = e.touches[0].clientY;
+            startX = e.touches[0].clientX;
           }
 
-          if (e.touches.length === 2) {
-            // 2本指ピンチ → 拡大縮小
-            const newDistance = getDistance(e.touches[0], e.touches[1]);
-            const scale = newDistance / startDistance;
+          if (e.touches.length === 2 && startDist != null) {
+            const newDist = getDist(e.touches[0], e.touches[1]);
+            const scale = startScale * (newDist / startDist);
             el.object3D.scale.set(scale, scale, scale);
-
-            // 2本指回転（回転角度の変化）
-            const newRotation = getRotation(e.touches[0], e.touches[1]);
-            const angleDiff = newRotation - startRotation;
-            el.object3D.rotation.y = startYRotation + angleDiff;
           }
         });
 
         window.addEventListener("touchend", () => {
-          this.previousTouches = [];
-          lastX = null;
-          lastY = null;
+          startX = null;
+          startDist = null;
         });
       }
     });
 
+    /******************************************
+     * 音声（ボタン方式）
+     ******************************************/
+    const voice = document.getElementById("voice");
+    const playButton = document.getElementById("playButton");
 
-    /***************************************************
-     * ★ オーバーレイを消す
-     ***************************************************/
-    const overlay = document.getElementById("scanning-overlay");
-    document.querySelector("a-scene").addEventListener("arReady", () => {
-      overlay.style.display = "none";
+    playButton.addEventListener("click", () => {
+      voice.play();
     });
 
-    /***************************************************
-     * ★ rotator に自動回転 + タッチ操作を付与
-     ***************************************************/
+    /******************************************
+     * マーカー認識
+     ******************************************/
+    const sceneEl = document.querySelector("a-scene");
+
+    // AR準備
+    sceneEl.addEventListener("arReady", () => {
+      document.getElementById("scanning-overlay").style.display = "none";
+    });
+
+    // マーカー見つかった時
+    sceneEl.addEventListener("targetFound", () => {
+      playButton.style.display = "block";
+    });
+
+    // マーカー外れた時
+    sceneEl.addEventListener("targetLost", () => {
+      voice.pause();
+      voice.currentTime = 0;
+      playButton.style.display = "none";
+    });
+
+    /******************************************
+     * rotator に機能を付与
+     ******************************************/
     window.addEventListener("load", () => {
       const rotator = document.querySelector("#rotator");
       rotator.setAttribute("auto-rotate", "");

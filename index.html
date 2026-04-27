@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AR名刺（方式B：音声ボタン + タッチ操作 + 自動回転）</title>
+  <title>AR名刺（iPhone対応）</title>
 
   <!-- A-Frame & MindAR -->
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
@@ -37,6 +37,9 @@
   <div id="scanning-overlay">名刺にかざしてください…</div>
   <button id="playButton">▶ 音声を再生</button>
 
+  <!-- ★★★ 重要：音声は a-assets の外に置く（iPhone対策） ★★★ -->
+  <audio id="voice" src="./assets/voice.mp3" preload="none"></audio>
+
   <a-scene
     mindar-image="imageTargetSrc: ./marker/marker.mind;"
     vr-mode-ui="enabled:false"
@@ -45,41 +48,31 @@
     color-space="sRGB">
 
     <a-assets>
-      <!-- モデル -->
       <a-asset-item id="avatarModel" src="./scene/model.glb"></a-asset-item>
-
-      <!-- 音声 -->
-      <audio id="voice" src="./assets/voice.mp3" preload="auto"></audio>
     </a-assets>
 
     <a-camera look-controls="enabled:false"></a-camera>
 
-    <!-- マーカー認識エリア -->
     <a-entity mindar-image-target="targetIndex:0">
-      <a-entity id="rotator" position="0 0 0" scale="1 1 1">
-        <a-gltf-model src="#avatarModel"></a-gltf-model>
+      <a-entity id="rotator">
+        <a-gltf-model src="#avatarModel" scale="1 1 1"></a-gltf-model>
       </a-entity>
     </a-entity>
 
   </a-scene>
 
   <script>
-    /******************************************
-     * 自動回転
-     ******************************************/
+    /* 自動回転 */
     AFRAME.registerComponent("auto-rotate", {
       tick: function () {
         this.el.object3D.rotation.y += 0.01;
       }
     });
 
-    /******************************************
-     * タッチ操作：回転（1本指）＋拡大縮小（2本指ピンチ）
-     ******************************************/
+    /* タッチ操作 */
     AFRAME.registerComponent("touch-control", {
       init: function () {
         const el = this.el;
-
         let startX = null;
         let startDist = null;
         let startScale = 1;
@@ -117,9 +110,7 @@
       }
     });
 
-    /******************************************
-     * 音声（ボタン方式）
-     ******************************************/
+    /* 音声ボタン */
     const voice = document.getElementById("voice");
     const playButton = document.getElementById("playButton");
 
@@ -127,31 +118,24 @@
       voice.play();
     });
 
-    /******************************************
-     * マーカー認識
-     ******************************************/
+    /* マーカー認識 */
     const sceneEl = document.querySelector("a-scene");
 
-    // AR準備
     sceneEl.addEventListener("arReady", () => {
       document.getElementById("scanning-overlay").style.display = "none";
     });
 
-    // マーカー見つかった時
     sceneEl.addEventListener("targetFound", () => {
       playButton.style.display = "block";
     });
 
-    // マーカー外れた時
     sceneEl.addEventListener("targetLost", () => {
       voice.pause();
       voice.currentTime = 0;
       playButton.style.display = "none";
     });
 
-    /******************************************
-     * rotator に機能を付与
-     ******************************************/
+    /* rotator に機能をセット */
     window.addEventListener("load", () => {
       const rotator = document.querySelector("#rotator");
       rotator.setAttribute("auto-rotate", "");

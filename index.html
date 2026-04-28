@@ -2,98 +2,107 @@
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Instant AR Card</title>
+  <title>AR Card Stable</title>
 
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
 
   <style>
     body { margin:0; overflow:hidden; }
-
-    #overlay {
+    #audioBtn {
       position:absolute;
       top:10px; left:0; right:0;
-      text-align:center;
-      z-index:10;
-    }
-
-    #playAudioBtn {
-      background:#007bff;
+      margin:auto;
+      width:200px;
+      padding:12px;
+      background:#0066ff;
       color:white;
-      padding:10px 18px;
-      border-radius:8px;
+      font-weight:bold;
       font-size:18px;
       border:none;
+      border-radius:10px;
+      text-align:center;
+      z-index:20;
     }
   </style>
 </head>
 
 <body>
 
-  <!--  音声ボタン（iPhone必須） -->
-  <div id="overlay">
-    <button id="playAudioBtn">▶ 音声を再生する</button>
-  </div>
+<!-- ★ 音声ボタン（iPhoneは必須） -->
+<button id="audioBtn">▶ 音声を再生</button>
 
-  <a-scene
-    mindar-image="imageTargetSrc: ./marker/marker.mind;
-                  filterMinCF: 0.1;
-                  filterBeta: 0.03;"
-    color-space="sRGB"
-    renderer="colorManagement: true, physicallyCorrectLights"
-    vr-mode-ui="enabled: false"
-    device-orientation-permission-ui="enabled: false">
+<a-scene
+  mindar-image="imageTargetSrc: ./marker/marker.mind;
+                filterMinCF:0.1; filterBeta:0.03;"
+  color-space="sRGB"
+  renderer="colorManagement:true; physicallyCorrectLights:true"
+  vr-mode-ui="enabled:false"
+  device-orientation-permission-ui="enabled:false">
 
-    <a-assets>
-      <a-asset-item id="avatarModel" src="./scene/model.glb"></a-asset-item>
-      <audio id="voice" src="./assets/voice.mp3"></audio>
-    </a-assets>
+  <a-assets timeout="60000">
+    <a-asset-item id="avatarModel" src="./scene/model.glb"></a-asset-item>
+    <audio id="voice" src="./assets/voice.mp3"></audio>
+  </a-assets>
 
-    <a-camera look-controls="enabled:false"></a-camera>
+  <a-camera look-controls="enabled:false"></a-camera>
 
-    <!--  マーカーに追従する Anchor  -->
-    <a-entity mindar-image-target="targetIndex: 0" id="anchor">
+  <!-- Anchor（中身は後で JS で挿入） -->
+  <a-entity id="anchor" mindar-image-target="targetIndex: 0"></a-entity>
 
-      <!-- 揺れ防止：ラップエンティティ -->
-      <a-entity id="wrapper" position="0 0 0" rotation="0 0 0" scale="2 2 2">
-        <a-gltf-model id="avatar" src="#avatarModel"></a-gltf-model>
-      </a-entity>
+</a-scene>
 
-    </a-entity>
+<script>
+const audioBtn = document.getElementById("audioBtn");
+const audio = document.getElementById("voice");
+const anchor = document.getElementById("anchor");
 
-  </a-scene>
+let wrapper;       // 回転用の親
+let rotateTimer;   // 揺れ解消のため一定フレームごとに物理回転
 
-  <script>
-    const anchor = document.querySelector("#anchor");
-    const wrapper = document.querySelector("#wrapper");
-    const audio = document.querySelector("#voice");
-    const button = document.querySelector("#playAudioBtn");
+// ★ glTF の準備が終わったら anchor に追加する
+document.querySelector("#avatarModel").addEventListener("loaded", () => {
 
-    let rotateInterval = null;
+  // wrapper 生成（揺れ対策）
+  wrapper = document.createElement("a-entity");
+  wrapper.setAttribute("position", "0 0 0");
+  wrapper.setAttribute("rotation", "0 0 0");
+  wrapper.setAttribute("scale", "2 2 2");
 
-    // 音声再生ボタン（iPhone必須）
-    button.addEventListener("click", () => {
-      audio.play();
-      button.style.display = "none";
-    });
+  // モデル本体
+  const model = document.createElement("a-gltf-model");
+  model.setAttribute("src", "#avatarModel");
+  model.setAttribute("shadow", "cast: true");
 
-    // マーカーを見失ったら停止
-    anchor.addEventListener("targetLost", () => {
-      if (rotateInterval) clearInterval(rotateInterval);
-      rotateInterval = null;
-    });
+  wrapper.appendChild(model);
+  anchor.appendChild(wrapper);
+});
 
-    // マーカーを発見 → 回転開始
-    anchor.addEventListener("targetFound", () => {
-      if (rotateInterval) return;
+// ★ 音声ボタン
+audioBtn.onclick = () => {
+  audio.play();
+  audioBtn.style.display = "none";
+};
 
-      rotateInterval = setInterval(() => {
-        let r = wrapper.getAttribute("rotation");
-        r.y += 1;        // ← 毎フレーム1度回す
-        wrapper.setAttribute("rotation", r);
-      }, 16);            // 60fps
-    });
-  </script>
+// マーカーを見失ったら停止
+anchor.addEventListener("targetLost", () => {
+  if (rotateTimer) clearInterval(rotateTimer);
+});
+
+// マーカー検出 → 回転開始
+anchor.addEventListener("targetFound", () => {
+
+  if (!wrapper) return;  // モデル未読み込みなら待つ
+
+  if (!rotateTimer) {
+    rotateTimer = setInterval(() => {
+      let r = wrapper.getAttribute("rotation");
+      r.y += 1;
+      wrapper.setAttribute("rotation", r);
+    }, 16);
+  }
+});
+</script>
 
 </body>
 </html>

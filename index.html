@@ -2,24 +2,22 @@
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AR名刺（安定・無変形・揺れゼロ版）</title>
+  <title>AR名刺（人物モデル完全対応版）</title>
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- MindAR 安定版 -->
+  <!-- MindAR -->
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.5/dist/mindar-image-aframe.prod.js"></script>
 
   <style>
     body { margin:0; overflow:hidden; }
-
     #scanning-overlay {
       position:absolute; inset:0;
       display:flex; justify-content:center; align-items:center;
       background:rgba(0,0,0,0.5); color:white;
       font-size:1.5rem; z-index:5;
     }
-
     #playButton {
       position:absolute; bottom:20px; left:50%;
       transform:translateX(-50%);
@@ -39,9 +37,7 @@
   <a-scene
     mindar-image="imageTargetSrc: ./marker/marker.mind; xrMode: image-tracking;"
     vr-mode-ui="enabled:false"
-    device-orientation-permission-ui="enabled:false"
-    renderer="colorManagement:true, physicallyCorrectLights:true"
-    color-space="sRGB">
+    device-orientation-permission-ui="enabled:false">
 
     <a-assets>
       <a-asset-item id="avatarModel" src="./scene/model.glb"></a-asset-item>
@@ -49,30 +45,32 @@
 
     <a-camera look-controls="enabled:false"></a-camera>
 
-    <!-- ★★★ 揺れゼロ・変形ゼロの三段構造 ★★★ -->
+    <!-- anchor -->
     <a-entity mindar-image-target="targetIndex:0">
 
-      <!-- stabilizer（位置だけ平滑化） -->
-      <a-entity id="stabilizer" position="0 0 0"></a-entity>
+      <!-- stabilizer（位置のみ平滑化） -->
+      <a-entity id="stabilizer"></a-entity>
 
-      <!-- wrapper（変形吸収。scale/rotation はここで固定） -->
-      <a-entity id="wrapper" position="0 0 0" rotation="0 0 0" scale="1 1 1">
+      <!-- 👇 超重要：人物モデル専用 軸反転補正 -->
+      <a-entity id="fix-wrapper"
+                rotation="0 0 180"
+                scale="1 1 1"
+                position="0 0 0">
 
-        <!-- rotator（操作系すべてここ） -->
+        <!-- rotator（操作系） -->
         <a-entity id="rotator">
           <a-gltf-model src="#avatarModel" scale="1 1 1"></a-gltf-model>
         </a-entity>
 
       </a-entity>
-
     </a-entity>
 
   </a-scene>
 
   <script>
-    /* ===== stabilizer：位置だけ平滑化（scale禁止） ===== */
+    /* stabilizer（位置のみ） */
     AFRAME.registerComponent("stabilize-pos", {
-      schema: { damp: {default: 0.25} },
+      schema: {damp: {default: 0.3}},
       init() { this.prev = new THREE.Vector3(); },
       tick() {
         const p = this.el.object3D.position;
@@ -81,79 +79,65 @@
       }
     });
 
-    /* ===== 自動回転 ===== */
+    /* auto rotate */
     AFRAME.registerComponent("auto-rotate", {
-      tick: function () {
-        this.el.object3D.rotation.y += 0.01;
-      }
+      tick(){ this.el.object3D.rotation.y += 0.01; }
     });
 
-    /* ===== タッチ操作（回転 & 拡大縮小） ===== */
+    /* touch control */
     AFRAME.registerComponent("touch-control", {
-      init: function () {
+      init(){
         const el = this.el;
-        let startX = null;
-        let startDist = null;
-        let startScale = 1;
+        let startX = null, startDist = null, startScale = 1;
+        const dist = (a,b)=>Math.hypot(b.clientX-a.clientX,b.clientY-a.clientY);
 
-        const getDist = (t1, t2) =>
-          Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-
-        window.addEventListener("touchstart", (e) => {
-          if (e.touches.length === 1) startX = e.touches[0].clientX;
-
-          if (e.touches.length === 2) {
-            startDist = getDist(e.touches[0], e.touches[1]);
-            startScale = el.object3D.scale.x;
+        window.addEventListener("touchstart",e=>{
+          if(e.touches.length===1) startX=e.touches[0].clientX;
+          if(e.touches.length===2){
+            startDist=dist(e.touches[0],e.touches[1]);
+            startScale=el.object3D.scale.x;
           }
         });
 
-        window.addEventListener("touchmove", (e) => {
-          if (e.touches.length === 1 && startX != null) {
-            const dx = e.touches[0].clientX - startX;
-            el.object3D.rotation.y += dx * 0.01;
-            startX = e.touches[0].clientX;
+        window.addEventListener("touchmove",e=>{
+          if(e.touches.length===1 && startX!=null){
+            const dx=e.touches[0].clientX-startX;
+            el.object3D.rotation.y+=dx*0.01;
+            startX=e.touches[0].clientX;
           }
-
-          if (e.touches.length === 2 && startDist != null) {
-            const newDist = getDist(e.touches[0], e.touches[1]);
-            const s = startScale * (newDist / startDist);
-            el.object3D.scale.set(s, s, s);
+          if(e.touches.length===2 && startDist!=null){
+            const d=dist(e.touches[0],e.touches[1]);
+            const s=startScale*(d/startDist);
+            el.object3D.scale.set(s,s,s);
           }
         });
 
-        window.addEventListener("touchend", () => {
-          startX = null;
-          startDist = null;
+        window.addEventListener("touchend",()=>{
+          startX=null; startDist=null;
         });
       }
     });
 
-    /* ===== イベント ===== */
-    const playButton = document.getElementById("playButton");
-    const voice = document.getElementById("voice");
+    /* 音声 */
+    const playButton=document.getElementById("playButton");
+    const voice=document.getElementById("voice");
+    playButton.addEventListener("click",()=> voice.play() );
 
-    playButton.addEventListener("click", () => voice.play());
-
-    const sceneEl = document.querySelector("a-scene");
-    sceneEl.addEventListener("arReady", () =>
-      document.getElementById("scanning-overlay").style.display = "none"
-    );
-
-    sceneEl.addEventListener("targetFound", () =>
-      playButton.style.display = "block"
-    );
-
-    sceneEl.addEventListener("targetLost", () => {
-      voice.pause(); voice.currentTime = 0;
-      playButton.style.display = "none";
+    const sceneEl=document.querySelector("a-scene");
+    sceneEl.addEventListener("arReady",()=>{
+      document.getElementById("scanning-overlay").style.display="none";
     });
 
-    /* ===== 初期化 ===== */
-    window.addEventListener("load", () => {
-      document.querySelector("#rotator").setAttribute("auto-rotate", "");
-      document.querySelector("#rotator").setAttribute("touch-control", "");
-      document.querySelector("#stabilizer").setAttribute("stabilize-pos", "damp:0.25");
+    sceneEl.addEventListener("targetFound",()=> playButton.style.display="block");
+    sceneEl.addEventListener("targetLost",()=>{
+      voice.pause(); voice.currentTime=0;
+      playButton.style.display="none";
+    });
+
+    window.addEventListener("load",()=>{
+      document.querySelector("#rotator").setAttribute("auto-rotate","");
+      document.querySelector("#rotator").setAttribute("touch-control","");
+      document.querySelector("#stabilizer").setAttribute("stabilize-pos","");
     });
   </script>
 

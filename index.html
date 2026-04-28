@@ -1,108 +1,87 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AR Card Stable</title>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR名刺（安定版）</title>
 
-  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+    <!-- A-Frame & MindAR -->
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
 
-  <style>
-    body { margin:0; overflow:hidden; }
-    #audioBtn {
-      position:absolute;
-      top:10px; left:0; right:0;
-      margin:auto;
-      width:200px;
-      padding:12px;
-      background:#0066ff;
-      color:white;
-      font-weight:bold;
-      font-size:18px;
-      border:none;
-      border-radius:10px;
-      text-align:center;
-      z-index:20;
-    }
-  </style>
-</head>
+    <style>
+      body { margin:0; overflow:hidden; }
 
-<body>
+      #voiceBtn {
+        position:absolute;
+        bottom:20px; left:20px;
+        padding:10px 20px;
+        font-size:1.2rem;
+        z-index:10;
+        background:#0066ff; color:white;
+        border:none; border-radius:10px;
+      }
+    </style>
+  </head>
 
-<!-- ★ 音声ボタン（iPhoneは必須） -->
-<button id="audioBtn">▶ 音声を再生</button>
+  <body>
 
-<a-scene
-  mindar-image="imageTargetSrc: ./marker/marker.mind;
-                filterMinCF:0.1; filterBeta:0.03;"
-  color-space="sRGB"
-  renderer="colorManagement:true; physicallyCorrectLights:true"
-  vr-mode-ui="enabled:false"
-  device-orientation-permission-ui="enabled:false">
-
-  <a-assets timeout="60000">
-    <a-asset-item id="avatarModel" src="./scene/model.glb"></a-asset-item>
     <audio id="voice" src="./assets/voice.mp3"></audio>
-  </a-assets>
+    <button id="voiceBtn">▶ 音声再生</button>
 
-  <a-camera look-controls="enabled:false"></a-camera>
+    <a-scene
+      mindar-image="imageTargetSrc: ./marker/marker.mind; filterMinCF:0.02; filterBeta:0.005;"
+      vr-mode-ui="enabled:false"
+      device-orientation-permission-ui="enabled:false">
 
-  <!-- Anchor（中身は後で JS で挿入） -->
-  <a-entity id="anchor" mindar-image-target="targetIndex: 0"></a-entity>
+      <a-assets>
+        <a-asset-item id="avatarModel" src="./scene/model.glb"></a-asset-item>
+      </a-assets>
 
-</a-scene>
+      <a-camera look-controls="enabled:false"></a-camera>
 
-<script>
-const audioBtn = document.getElementById("audioBtn");
-const audio = document.getElementById("voice");
-const anchor = document.getElementById("anchor");
+      <a-entity id="marker" mindar-image-target="targetIndex:0">
+        
+        <a-entity id="wrapper" position="0 0 0" rotation="0 0 0">
+          <a-gltf-model
+            id="model"
+            src="#avatarModel"
+            scale="2 2 2"
+            rotation="45 0 0"
+            animation-mixer="clip:*; loop:repeat;">
+          </a-gltf-model>
+        </a-entity>
 
-let wrapper;       // 回転用の親
-let rotateTimer;   // 揺れ解消のため一定フレームごとに物理回転
+      </a-entity>
+    </a-scene>
 
-// ★ glTF の準備が終わったら anchor に追加する
-document.querySelector("#avatarModel").addEventListener("loaded", () => {
 
-  // wrapper 生成（揺れ対策）
-  wrapper = document.createElement("a-entity");
-  wrapper.setAttribute("position", "0 0 0");
-  wrapper.setAttribute("rotation", "0 0 0");
-  wrapper.setAttribute("scale", "2 2 2");
+    <script>
+      const voiceBtn = document.getElementById("voiceBtn");
+      const voice = document.getElementById("voice");
 
-  // モデル本体
-  const model = document.createElement("a-gltf-model");
-  model.setAttribute("src", "#avatarModel");
-  model.setAttribute("shadow", "cast: true");
+      voiceBtn.onclick = () => {
+        voice.play();
+      };
 
-  wrapper.appendChild(model);
-  anchor.appendChild(wrapper);
-});
+      const wrapper = document.getElementById("wrapper");
 
-// ★ 音声ボタン
-audioBtn.onclick = () => {
-  audio.play();
-  audioBtn.style.display = "none";
-};
+      let rotateLoop = null;
 
-// マーカーを見失ったら停止
-anchor.addEventListener("targetLost", () => {
-  if (rotateTimer) clearInterval(rotateTimer);
-});
+      document.getElementById("marker").addEventListener("targetFound", () => {
+        if (!rotateLoop) {
+          rotateLoop = setInterval(() => {
+            let r = wrapper.getAttribute("rotation");
+            r.y += 1;
+            wrapper.setAttribute("rotation", r);
+          }, 16);
+        }
+      });
 
-// マーカー検出 → 回転開始
-anchor.addEventListener("targetFound", () => {
+      document.getElementById("marker").addEventListener("targetLost", () => {
+        clearInterval(rotateLoop);
+        rotateLoop = null;
+      });
+    </script>
 
-  if (!wrapper) return;  // モデル未読み込みなら待つ
-
-  if (!rotateTimer) {
-    rotateTimer = setInterval(() => {
-      let r = wrapper.getAttribute("rotation");
-      r.y += 1;
-      wrapper.setAttribute("rotation", r);
-    }, 16);
-  }
-});
-</script>
-
-</body>
+  </body>
 </html>

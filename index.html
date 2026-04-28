@@ -2,12 +2,12 @@
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AR名刺（揺れ完全停止版）</title>
+  <title>AR名刺（安定・無変形・揺れゼロ版）</title>
 
-  <!-- A-Frame（安定版）-->
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- MindAR（安定版 1.1.5）-->
+  <!-- MindAR 安定版 -->
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.5/dist/mindar-image-aframe.prod.js"></script>
 
   <style>
@@ -49,23 +49,38 @@
 
     <a-camera look-controls="enabled:false"></a-camera>
 
-    <!-- ★★★ 揺れゼロ構造：3層構造 ★★★ -->
+    <!-- ★★★ 揺れゼロ・変形ゼロの三段構造 ★★★ -->
     <a-entity mindar-image-target="targetIndex:0">
-      <!-- stabilizer1 -->
-      <a-entity id="st1" position="0 0 0">
-        <!-- stabilizer2（最終ブレ止め） -->
-        <a-entity id="st2" position="0 0 0">
-          <!-- rotator（操作系はここ） -->
-          <a-entity id="rotator">
-            <a-gltf-model src="#avatarModel" scale="1 1 1"></a-gltf-model>
-          </a-entity>
+
+      <!-- stabilizer（位置だけ平滑化） -->
+      <a-entity id="stabilizer" position="0 0 0"></a-entity>
+
+      <!-- wrapper（変形吸収。scale/rotation はここで固定） -->
+      <a-entity id="wrapper" position="0 0 0" rotation="0 0 0" scale="1 1 1">
+
+        <!-- rotator（操作系すべてここ） -->
+        <a-entity id="rotator">
+          <a-gltf-model src="#avatarModel" scale="1 1 1"></a-gltf-model>
         </a-entity>
+
       </a-entity>
+
     </a-entity>
 
   </a-scene>
 
   <script>
+    /* ===== stabilizer：位置だけ平滑化（scale禁止） ===== */
+    AFRAME.registerComponent("stabilize-pos", {
+      schema: { damp: {default: 0.25} },
+      init() { this.prev = new THREE.Vector3(); },
+      tick() {
+        const p = this.el.object3D.position;
+        this.prev.lerp(p, this.data.damp);
+        p.copy(this.prev);
+      }
+    });
+
     /* ===== 自動回転 ===== */
     AFRAME.registerComponent("auto-rotate", {
       tick: function () {
@@ -73,7 +88,7 @@
       }
     });
 
-    /* ===== タッチ操作（昨日のコードそのまま） ===== */
+    /* ===== タッチ操作（回転 & 拡大縮小） ===== */
     AFRAME.registerComponent("touch-control", {
       init: function () {
         const el = this.el;
@@ -86,6 +101,7 @@
 
         window.addEventListener("touchstart", (e) => {
           if (e.touches.length === 1) startX = e.touches[0].clientX;
+
           if (e.touches.length === 2) {
             startDist = getDist(e.touches[0], e.touches[1]);
             startScale = el.object3D.scale.x;
@@ -101,8 +117,8 @@
 
           if (e.touches.length === 2 && startDist != null) {
             const newDist = getDist(e.touches[0], e.touches[1]);
-            const scale = startScale * (newDist / startDist);
-            el.object3D.scale.set(scale, scale, scale);
+            const s = startScale * (newDist / startDist);
+            el.object3D.scale.set(s, s, s);
           }
         });
 
@@ -113,50 +129,31 @@
       }
     });
 
-    /* ===== 2段階 stabilizer の揺れ吸収フィルタ ===== */
-    AFRAME.registerComponent("stabilize", {
-      schema: { damp: {default: 0.2} },
-      init() {
-        this.prev = new THREE.Vector3();
-      },
-      tick() {
-        const p = this.el.object3D.position;
-        this.prev.lerp(p, this.data.damp);   // 平滑化
-        p.copy(this.prev);
-      }
-    });
-
-    /* ===== 音声 ===== */
-    const voice = document.getElementById("voice");
+    /* ===== イベント ===== */
     const playButton = document.getElementById("playButton");
+    const voice = document.getElementById("voice");
+
     playButton.addEventListener("click", () => voice.play());
 
-    /* ===== マーカー認識 ===== */
     const sceneEl = document.querySelector("a-scene");
+    sceneEl.addEventListener("arReady", () =>
+      document.getElementById("scanning-overlay").style.display = "none"
+    );
 
-    sceneEl.addEventListener("arReady", () => {
-      document.getElementById("scanning-overlay").style.display = "none";
-    });
-
-    sceneEl.addEventListener("targetFound", () => {
-      playButton.style.display = "block";
-    });
+    sceneEl.addEventListener("targetFound", () =>
+      playButton.style.display = "block"
+    );
 
     sceneEl.addEventListener("targetLost", () => {
-      voice.pause();
-      voice.currentTime = 0;
+      voice.pause(); voice.currentTime = 0;
       playButton.style.display = "none";
     });
 
-    /* ===== コンポーネント適用 ===== */
+    /* ===== 初期化 ===== */
     window.addEventListener("load", () => {
-      const rotator = document.querySelector("#rotator");
-      rotator.setAttribute("auto-rotate", "");
-      rotator.setAttribute("touch-control", "");
-
-      // ★ stabilizer に揺れ吸収フィルタ適用
-      document.querySelector("#st1").setAttribute("stabilize", "damp:0.25");
-      document.querySelector("#st2").setAttribute("stabilize", "damp:0.35");
+      document.querySelector("#rotator").setAttribute("auto-rotate", "");
+      document.querySelector("#rotator").setAttribute("touch-control", "");
+      document.querySelector("#stabilizer").setAttribute("stabilize-pos", "damp:0.25");
     });
   </script>
 

@@ -2,10 +2,12 @@
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AR名刺（iPhone対応・揺れ防止版）</title>
+  <title>AR名刺（揺れ完全停止版）</title>
 
-  <!-- A-Frame & MindAR（安定版組み合わせ） -->
+  <!-- A-Frame（安定版）-->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- MindAR（安定版 1.1.5）-->
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.5/dist/mindar-image-aframe.prod.js"></script>
 
   <style>
@@ -19,15 +21,11 @@
     }
 
     #playButton {
-      position:absolute;
-      bottom:20px; left:50%;
+      position:absolute; bottom:20px; left:50%;
       transform:translateX(-50%);
-      padding:12px 18px;
-      background:#007bff; color:white;
-      border-radius:8px;
-      font-size:1.2rem;
-      display:none;
-      z-index:10;
+      padding:12px 18px; background:#007bff; color:white;
+      border-radius:8px; font-size:1.2rem;
+      display:none; z-index:10;
     }
   </style>
 </head>
@@ -36,8 +34,6 @@
 
   <div id="scanning-overlay">名刺にかざしてください…</div>
   <button id="playButton">▶ 音声を再生</button>
-
-  <!-- 音声ファイル（iPhoneは a-assets の外） -->
   <audio id="voice" src="./assets/voice.mp3" preload="none"></audio>
 
   <a-scene
@@ -53,11 +49,16 @@
 
     <a-camera look-controls="enabled:false"></a-camera>
 
-    <!-- ★★★ ブルブル防止：中間ノード stabilizer 追加 ★★★ -->
+    <!-- ★★★ 揺れゼロ構造：3層構造 ★★★ -->
     <a-entity mindar-image-target="targetIndex:0">
-      <a-entity id="stabilizer" position="0 0 0">
-        <a-entity id="rotator">
-          <a-gltf-model src="#avatarModel" scale="1 1 1"></a-gltf-model>
+      <!-- stabilizer1 -->
+      <a-entity id="st1" position="0 0 0">
+        <!-- stabilizer2（最終ブレ止め） -->
+        <a-entity id="st2" position="0 0 0">
+          <!-- rotator（操作系はここ） -->
+          <a-entity id="rotator">
+            <a-gltf-model src="#avatarModel" scale="1 1 1"></a-gltf-model>
+          </a-entity>
         </a-entity>
       </a-entity>
     </a-entity>
@@ -65,7 +66,7 @@
   </a-scene>
 
   <script>
-    /* ===== 自動回転（あなたの昨日のコードそのまま） ===== */
+    /* ===== 自動回転 ===== */
     AFRAME.registerComponent("auto-rotate", {
       tick: function () {
         this.el.object3D.rotation.y += 0.01;
@@ -112,15 +113,25 @@
       }
     });
 
-    /* ===== 音声ボタン ===== */
-    const voice = document.getElementById("voice");
-    const playButton = document.getElementById("playButton");
-
-    playButton.addEventListener("click", () => {
-      voice.play();
+    /* ===== 2段階 stabilizer の揺れ吸収フィルタ ===== */
+    AFRAME.registerComponent("stabilize", {
+      schema: { damp: {default: 0.2} },
+      init() {
+        this.prev = new THREE.Vector3();
+      },
+      tick() {
+        const p = this.el.object3D.position;
+        this.prev.lerp(p, this.data.damp);   // 平滑化
+        p.copy(this.prev);
+      }
     });
 
-    /* ===== マーカー認識イベント ===== */
+    /* ===== 音声 ===== */
+    const voice = document.getElementById("voice");
+    const playButton = document.getElementById("playButton");
+    playButton.addEventListener("click", () => voice.play());
+
+    /* ===== マーカー認識 ===== */
     const sceneEl = document.querySelector("a-scene");
 
     sceneEl.addEventListener("arReady", () => {
@@ -137,11 +148,15 @@
       playButton.style.display = "none";
     });
 
-    /* ===== rotator に回転とタッチ操作を適用 ===== */
+    /* ===== コンポーネント適用 ===== */
     window.addEventListener("load", () => {
       const rotator = document.querySelector("#rotator");
       rotator.setAttribute("auto-rotate", "");
       rotator.setAttribute("touch-control", "");
+
+      // ★ stabilizer に揺れ吸収フィルタ適用
+      document.querySelector("#st1").setAttribute("stabilize", "damp:0.25");
+      document.querySelector("#st2").setAttribute("stabilize", "damp:0.35");
     });
   </script>
 

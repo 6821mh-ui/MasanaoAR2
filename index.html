@@ -1,87 +1,85 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR名刺（安定版）</title>
-
-    <!-- A-Frame & MindAR -->
-    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/aframe@1.5.0/dist/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.5/dist/mindar-image-aframe.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.155.0/examples/js/controls/OrbitControls.js"></script>
     <style>
-      body { margin:0; overflow:hidden; }
-
+      body, html { margin: 0; padding: 0; overflow: hidden; }
       #voiceBtn {
-        position:absolute;
-        bottom:20px; left:20px;
-        padding:10px 20px;
-        font-size:1.2rem;
-        z-index:10;
-        background:#0066ff; color:white;
-        border:none; border-radius:10px;
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 999;
+        padding: 10px 15px;
+        font-size: 16px;
       }
     </style>
   </head>
 
   <body>
-
-    <audio id="voice" src="./assets/voice.mp3"></audio>
-    <button id="voiceBtn">▶ 音声再生</button>
+    <button id="voiceBtn">🔊 音声</button>
 
     <a-scene
-      mindar-image="imageTargetSrc: ./marker/marker.mind; filterMinCF:0.02; filterBeta:0.005;"
-      vr-mode-ui="enabled:false"
-      device-orientation-permission-ui="enabled:false">
+      mindar-image="imageTargetSrc: ./marker/marker.mind;"
+      vr-mode-ui="enabled: false"
+      device-orientation-permission-ui="enabled: false"
+      renderer="colorManagement: true">
+      
+      <!-- カメラ -->
+      <a-camera position="0 0 0"></a-camera>
 
-      <a-assets>
-        <a-asset-item id="avatarModel" src="./scene/model.glb"></a-asset-item>
-      </a-assets>
-
-      <a-camera look-controls="enabled:false"></a-camera>
-
-      <a-entity id="marker" mindar-image-target="targetIndex:0">
-        
-        <a-entity id="wrapper" position="0 0 0" rotation="0 0 0">
-          <a-gltf-model
-            id="model"
-            src="#avatarModel"
-            scale="2 2 2"
-            rotation="45 0 0"
-            animation-mixer="clip:*; loop:repeat;">
-          </a-gltf-model>
+      <!-- アンカー（MindARが制御する）-->
+      <a-entity mindar-image-target="targetIndex: 0">
+        <!-- モデル操作用のコンテナ（OrbitControls + 自動回転） -->
+        <a-entity id="modelContainer" rotation="0 0 0">
+          <a-entity id="model"
+            gltf-model="./scene/model.glb"
+            scale="0.5 0.5 0.5"
+            rotation="0 0 0">
+          </a-entity>
         </a-entity>
-
       </a-entity>
     </a-scene>
 
-
     <script>
-      const voiceBtn = document.getElementById("voiceBtn");
-      const voice = document.getElementById("voice");
+      // ========= 音声 ==========
+      const audio = new Audio("./assets/voice.mp3");
+      document.getElementById("voiceBtn").onclick = () => audio.play();
 
-      voiceBtn.onclick = () => {
-        voice.play();
-      };
+      // ========= 自動水平回転 ==========
+      let container = null;
+      document.querySelector("a-scene").addEventListener("loaded", () => {
+        container = document.getElementById("modelContainer").object3D;
 
-      const wrapper = document.getElementById("wrapper");
+        function rotate() {
+          if (container) {
+            container.rotation.y += 0.01; // 水平回転のみ
+          }
+          requestAnimationFrame(rotate);
+        }
+        rotate();
+      });
 
-      let rotateLoop = null;
+      // ========= タッチ操作（OrbitControls） ==========
+      AFRAME.registerComponent("orbit-controls", {
+        init: function () {
+          const threeScene = this.el.sceneEl;
+          const camera = threeScene.camera;
+          const renderer = threeScene.renderer;
 
-      document.getElementById("marker").addEventListener("targetFound", () => {
-        if (!rotateLoop) {
-          rotateLoop = setInterval(() => {
-            let r = wrapper.getAttribute("rotation");
-            r.y += 1;
-            wrapper.setAttribute("rotation", r);
-          }, 16);
+          this.controls = new THREE.OrbitControls(camera, renderer.domElement);
+          this.controls.enablePan = false;   // 平行移動禁止（ARでずれるため）
+          this.controls.enableZoom = true;   // ← 拡大縮小 OK
+          this.controls.enableRotate = true; // ← モデルの回転操作 OK
+        },
+        tick: function () {
+          this.controls.update();
         }
       });
 
-      document.getElementById("marker").addEventListener("targetLost", () => {
-        clearInterval(rotateLoop);
-        rotateLoop = null;
-      });
+      // カメラに OrbitControls を付与
+      document.querySelector("a-camera").setAttribute("orbit-controls", "");
     </script>
-
   </body>
 </html>

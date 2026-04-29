@@ -37,6 +37,7 @@
   <div id="scanning-overlay">名刺にかざしてください…</div>
   <button id="playButton">▶ 音声を再生</button>
 
+  <!-- ★★★ 重要：音声は a-assets の外に置く（iPhone対策） ★★★ -->
   <audio id="voice" src="./assets/voice.mp3" preload="none"></audio>
 
   <a-scene
@@ -52,9 +53,8 @@
 
     <a-camera look-controls="enabled:false"></a-camera>
 
-    <!-- ★ ブルブル軽減：初期位置と回転を固定 ★ -->
-    <a-entity mindar-image-target="targetIndex:0" position="0 0 0" rotation="0 0 0">
-      <a-entity id="rotator" position="0 0 0" rotation="0 0 0">
+    <a-entity mindar-image-target="targetIndex:0">
+      <a-entity id="rotator">
         <a-gltf-model src="#avatarModel" scale="1 1 1"></a-gltf-model>
       </a-entity>
     </a-entity>
@@ -69,7 +69,7 @@
       }
     });
 
-    /* タッチ操作（回転＆ピンチ拡大） */
+    /* タッチ操作 */
     AFRAME.registerComponent("touch-control", {
       init: function () {
         const el = this.el;
@@ -110,7 +110,7 @@
       }
     });
 
-    /* 音声 */
+    /* 音声ボタン */
     const voice = document.getElementById("voice");
     const playButton = document.getElementById("playButton");
 
@@ -120,6 +120,7 @@
 
     /* マーカー認識 */
     const sceneEl = document.querySelector("a-scene");
+
     sceneEl.addEventListener("arReady", () => {
       document.getElementById("scanning-overlay").style.display = "none";
     });
@@ -134,7 +135,7 @@
       playButton.style.display = "none";
     });
 
-    /* rotator に回転 & タッチ機能を適用 */
+    /* rotator に機能をセット */
     window.addEventListener("load", () => {
       const rotator = document.querySelector("#rotator");
       rotator.setAttribute("auto-rotate", "");

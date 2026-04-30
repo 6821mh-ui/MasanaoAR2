@@ -34,14 +34,13 @@
 
 <body>
 
-  <div id="scanning-overlay">名刺にかざしてください…</div>
+  <div id="scanning-overlay">名刺の本人画像にかざして</div>
   <button id="playButton">▶ 音声を再生</button>
 
-  <!-- ★★★ 重要：音声は a-assets の外に置く（iPhone対策） ★★★ -->
   <audio id="voice" src="./assets/voice.mp3" preload="none"></audio>
 
   <a-scene
-    mindar-image="imageTargetSrc: ./marker/marker.mind;"
+    mindar-image="imageTargetSrc: ./marker/marker.mind; filterMinCF:0.08; filterBeta:0.02;"
     vr-mode-ui="enabled:false"
     device-orientation-permission-ui="enabled:false"
     renderer="colorManagement:true, physicallyCorrectLights:true"

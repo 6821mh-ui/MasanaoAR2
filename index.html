@@ -60,14 +60,14 @@
   </a-scene>
 
   <script>
-    /* 自動回転：少しゆっくりにして震えを目立ちにくくする */
+    /* 自動回転（少し速く） */
     AFRAME.registerComponent("auto-rotate", {
       tick: function () {
-        this.el.object3D.rotation.y += 0.006;
+        this.el.object3D.rotation.y += 0.01;
       }
     });
 
-    /* タッチ操作：回転＋ピンチ拡大縮小 */
+    /* タッチ操作 */
     AFRAME.registerComponent("touch-control", {
       init: function () {
         const el = this.el;
